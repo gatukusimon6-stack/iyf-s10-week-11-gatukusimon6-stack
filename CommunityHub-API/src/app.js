@@ -5,19 +5,20 @@ const routes = require('./routes');
 
 const app = express();
 
-// Middleware
+// THIS MUST COME FIRST
 app.use(express.json());
+
+// Then other middleware
 app.use(logger);
 
-// Routes
+// Then routes
 app.use('/api', routes);
 
-// 404 handler
+// Error handlers last
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
 });
 
-// Error handler (must be last!)
 app.use(errorHandler);
 
 module.exports = app;

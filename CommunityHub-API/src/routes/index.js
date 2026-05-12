@@ -1,19 +1,18 @@
 const express = require('express');
+const mongoose = require('mongoose');  // ← ADD THIS LINE
 const router = express.Router();
 
 const postsRoutes = require('./posts');
-// REMOVE OR COMMENT OUT THIS LINE:
-// const usersRoutes = require('./users');   ← DELETE THIS
+const authRoutes = require('./auth');
 
 router.use('/posts', postsRoutes);
-// REMOVE THIS TOO:
-// router.use('/users', usersRoutes);        ← DELETE THIS
+router.use('/auth', authRoutes);
 
-// Health check
 router.get('/health', (req, res) => {
-    res.json({ 
+    res.json({
         status: 'OK',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
     });
 });
 

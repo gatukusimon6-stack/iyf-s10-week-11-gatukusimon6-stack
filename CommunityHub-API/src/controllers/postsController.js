@@ -1,108 +1,162 @@
-const store = require('../data/store');
-const { ApiError } = require('../middleware/errorHandler');
+const Post = require('../models/Post');
 
-const getAllPosts = (req, res) => {
-    const { author, sort, search, page = 1, limit = 10 } = req.query;
+const getAllPosts = async (req, res, next) => {
+    try {
+        const { author, search, sort, page = 1, limit = 10 } = req.query;
 
-    let result = [...store.posts];
+        let query = {};
+        let sortOption = { createdAt: -1 };
 
-    if (author) {
-        result = result.filter(post =>
-            post.author.toLowerCase().includes(author.toLowerCase())
-        );
+        if (author) {
+            query.author = new RegExp(author, 'i');
+        }
+
+        if (search) {
+            query.$text = { $search: search };
+        }
+
+        if (sort === 'oldest') sortOption = { createdAt: 1 };
+        else if (sort === 'popular') sortOption = { likes: -1 };
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const posts = await Post.find(query)
+            .populate('author', 'username email')
+            .sort(sortOption)
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        const total = await Post.countDocuments(query);
+
+        res.json({
+            posts,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error) {
+        next(error);
     }
-
-    if (search) {
-        result = result.filter(post =>
-            post.title.toLowerCase().includes(search.toLowerCase())
-        );
-    }
-
-    if (sort === 'newest') {
-        result.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    } else if (sort === 'popular') {
-        result.sort((a, b) => b.likes - a.likes);
-    }
-
-    const startIndex = (parseInt(page) - 1) * parseInt(limit);
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedResult = result.slice(startIndex, endIndex);
-
-    res.json({
-        posts: paginatedResult,
-        total: result.length,
-        page: parseInt(page),
-        limit: parseInt(limit)
-    });
 };
 
-const getPostById = (req, res) => {
-    const post = store.posts.find(p => p.id === parseInt(req.params.id));
-    
-    if (!post) {
-        throw new ApiError('Post not found', 404);
+const getPostById = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id)
+            .populate('author', 'username email');
+
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        res.json(post);
+
+    } catch (error) {
+        if (error.name === 'CastError') {
+            return res.status(400).json({ error: 'Invalid post ID' });
+        }
+        next(error);
     }
-    
-    res.json(post);
 };
 
-const createPost = (req, res) => {
-    const { title, content, author } = req.body;
+const createPost = async (req, res, next) => {
+    try {
+        const { title, content, tags } = req.body;
 
-    const newPost = {
-        id: store.nextId++,
-        title,
-        content,
-        author,
-        createdAt: new Date().toISOString(),
-        likes: 0
-    };
+        const post = new Post({
+            title,
+            content,
+            author: req.user._id,
+            tags
+        });
 
-    store.posts.push(newPost);
-    res.status(201).json(newPost);
+        await post.save();
+        await post.populate('author', 'username email');
+
+        res.status(201).json(post);
+
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(e => e.message);
+            return res.status(400).json({ errors: messages });
+        }
+        next(error);
+    }
 };
 
-const updatePost = (req, res) => {
-    const id = parseInt(req.params.id);
-    const postIndex = store.posts.findIndex(p => p.id === id);
+const updatePost = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id);
 
-    if (postIndex === -1) {
-        throw new ApiError('Post not found', 404);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        // Check ownership
+        if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'You can only edit your own posts'
+            });
+        }
+
+        const { title, content, tags } = req.body;
+        
+        post.title = title || post.title;
+        post.content = content || post.content;
+        post.tags = tags || post.tags;
+
+        await post.save();
+        await post.populate('author', 'username email');
+
+        res.json(post);
+
+    } catch (error) {
+        next(error);
     }
-
-    const { title, content } = req.body;
-
-    store.posts[postIndex] = {
-        ...store.posts[postIndex],
-        title: title || store.posts[postIndex].title,
-        content: content || store.posts[postIndex].content,
-        updatedAt: new Date().toISOString()
-    };
-
-    res.json(store.posts[postIndex]);
 };
 
-const deletePost = (req, res) => {
-    const id = parseInt(req.params.id);
-    const postIndex = store.posts.findIndex(p => p.id === id);
+const deletePost = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id);
 
-    if (postIndex === -1) {
-        throw new ApiError('Post not found', 404);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        // Check ownership
+        if (post.author.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({
+                error: 'You can only delete your own posts'
+            });
+        }
+
+        await Post.findByIdAndDelete(req.params.id);
+        res.status(204).send();
+
+    } catch (error) {
+        next(error);
     }
-
-    store.posts.splice(postIndex, 1);
-    res.status(204).send();
 };
 
-const likePost = (req, res) => {
-    const post = store.posts.find(p => p.id === parseInt(req.params.id));
+const likePost = async (req, res, next) => {
+    try {
+        const post = await Post.findById(req.params.id);
 
-    if (!post) {
-        throw new ApiError('Post not found', 404);
+        if (!post) {
+            return res.status(404).json({ error: 'Post not found' });
+        }
+
+        await post.like();
+        await post.populate('author', 'username email');
+
+        res.json(post);
+
+    } catch (error) {
+        next(error);
     }
-
-    post.likes++;
-    res.json(post);
 };
 
 module.exports = {
