@@ -1,6 +1,4 @@
-<<<<<<< HEAD
-# Week 10: Backend Basics - Node.js & Express
-=======
+
 # Week 11: Database Integration & Authentication
 
 ---
