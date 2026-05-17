@@ -1,25 +1,25 @@
 
-# Week 11: Database Integration & Authentication
+# Week 11: Database Integration & Authentication 
 
 ---
->>>>>>> 31cc09463ad16991d4e4d45d94dd4f60f6dbd22f
 
 ## Author
 - **Name:** Gatuku Simon
 - **GitHub:** [@gatukusimon6-stack](https://github.com/gatukusimon6-stack)
 - **Date:** April 2026
 
-<<<<<<< HEAD
+
 ## Project Description
-CommunityHub API — A RESTful backend server built with Node.js and Express. This project covers server-side JavaScript fundamentals, including routing, middleware, CRUD operations, error handling, and request/response management. The API powers a community platform with full posts management.
-=======
+
+-CommunityHub API — A RESTful backend server built with Node.js and Express. This project covers server-side JavaScript fundamentals, including routing, middleware, CRUD operations, error handling, and request/response management. The API powers a community platform with full posts management.
+
 ---
 
 ## Project Description
 CommunityHub API — Now with real data persistence and user authentication! This week the in-memory store from Week 10 is replaced with MongoDB Atlas, and JWT-based authentication is added so users can register, log in, and manage their own posts securely.
 
 ---
->>>>>>> 31cc09463ad16991d4e4d45d94dd4f60f6dbd22f
+
 
 ## Technologies Used
 - Node.js
